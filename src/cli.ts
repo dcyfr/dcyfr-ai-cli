@@ -7,13 +7,18 @@
  */
 
 import { Command } from 'commander';
-import { createLogger } from './lib/logger.js';
+
 import { createStatusCommand } from './commands/status.js';
 import { createValidateCommand } from './commands/validate.js';
 import { createTelemetryCommand } from './commands/telemetry.js';
 import { createInitCommand } from './commands/init.js';
+import { createScanCommand } from './commands/scan.js';
+import { createHealthCommand } from './commands/health.js';
+import { createDaemonCommand } from './commands/daemon.js';
+import { createFixCommand } from './commands/fix.js';
+import { createAICommand } from './commands/ai.js';
+import { createConfigCommand } from './commands/config.js';
 
-const logger = createLogger('cli');
 const program = new Command();
 
 program
@@ -26,6 +31,12 @@ program.addCommand(createStatusCommand());
 program.addCommand(createValidateCommand());
 program.addCommand(createTelemetryCommand());
 program.addCommand(createInitCommand());
+program.addCommand(createScanCommand());
+program.addCommand(createHealthCommand());
+program.addCommand(createDaemonCommand());
+program.addCommand(createFixCommand());
+program.addCommand(createAICommand());
+program.addCommand(createConfigCommand());
 
 /**
  * Default help command

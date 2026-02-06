@@ -1,43 +1,77 @@
 /**
- * Validate command - Run validation checks
+ * Validate command — Run DCYFR compliance validation
+ *
+ * This replaces the original stub with real scanner integration.
+ *
+ * @module @dcyfr/ai-cli/commands/validate
  */
 
 import { Command } from 'commander';
 import { createLogger } from '@/lib/logger.js';
-import { loadConfig } from '@/lib/config.js';
+import { createDefaultRegistry } from '@/scanners/registry.js';
+import type { ScanContext } from '@/scanners/types.js';
+import {
+  buildHealthSnapshot,
+  saveHealthSnapshot,
+  renderScanResults,
+} from '@/health/index.js';
+import { listProjects } from '@/lib/files.js';
+import { findWorkspaceRoot } from '@/lib/workspace.js';
 
 const logger = createLogger('validate');
 
 export function createValidateCommand(): Command {
   return new Command('validate')
-    .description('Run DCYFR AI validation checks')
+    .description('Run DCYFR AI validation checks (compliance, security, governance)')
     .option('-v, --verbose', 'Verbose output')
+    .option('-p, --project <name>', 'Validate a specific project')
+    .option('--json', 'Output results as JSON')
     .action(async (options) => {
       try {
-        const config = await loadConfig();
+        const workspaceRoot = await findWorkspaceRoot();
+        const registry = await createDefaultRegistry();
 
-        logger.info('Validation framework check...');
-
-        console.log('\n🔍 Running Validation Checks\n');
-        console.log(`Mode: ${config.validation.enabled ? 'Enabled' : 'Warn Only'}`);
-        console.log(`Parallel: Yes`);
-        console.log('');
-
-        // Example validation
-        console.log('✅ Validation framework initialized');
-        console.log('✅ Configuration loaded');
-        console.log('✅ System checks passed');
-        console.log('');
-
-        if (options.verbose) {
-          console.log('Framework Details:');
-          console.log(`  Config: ${JSON.stringify(config, null, 2)}`);
-          console.log('');
+        if (!options.json) {
+          console.log('\n🔍 Running DCYFR Validation Checks\n');
         }
 
-        logger.info('Validation complete');
+        const context: ScanContext = {
+          workspaceRoot,
+          project: options.project,
+          verbose: options.verbose,
+        };
+
+        // Run all scanners
+        const results = await registry.runAll(context);
+
+        if (options.json) {
+          console.log(JSON.stringify(results, null, 2));
+        } else {
+          console.log(renderScanResults(results, options.verbose));
+        }
+
+        // Save health snapshot
+        const snapshot = buildHealthSnapshot(results);
+        const projects = await listProjects(workspaceRoot);
+        snapshot.workspace.packages = projects.length;
+        await saveHealthSnapshot(workspaceRoot, snapshot);
+
+        // Exit with non-zero if any scanner failed
+        const hasFailed = results.some((r) => r.status === 'fail');
+        if (hasFailed) {
+          if (!options.json) {
+            console.log('  ❌ Validation failed. See violations above.\n');
+          }
+          process.exit(1);
+        } else {
+          if (!options.json) {
+            console.log('  ✅ Validation passed.\n');
+          }
+        }
       } catch (error) {
-        logger.error('Validation failed', { error });
+        logger.error('Validation failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         process.exit(1);
       }
     });
