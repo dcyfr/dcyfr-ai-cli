@@ -1,0 +1,30 @@
+/**
+ * Example DCYFR AI CLI configuration
+ *
+ * Place this file in one of these locations:
+ * - .dcyfr.json (project root)
+ * - config.json (project root)
+ * - $HOME/.dcyfr/config.json (home directory)
+ * - %APPDATA%\.dcyfr\config.json (Windows)
+ */
+
+{
+  "telemetry": {
+    "enabled": true,
+    "level": "info",
+    "endpoints": [
+      {
+        "type": "console",
+        "level": "info"
+      }
+    ]
+  },
+  "validation": {
+    "enabled": true,
+    "strict": true
+  },
+  "cli": {
+    "verboseLogging": false,
+    "colorOutput": true
+  }
+}
