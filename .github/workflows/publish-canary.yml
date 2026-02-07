@@ -1,0 +1,101 @@
+name: Publish Canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (canary, beta, alpha, next)'
+        required: true
+        default: 'canary'
+        type: choice
+        options:
+          - canary
+          - beta
+          - alpha
+          - next
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  NODE_VERSION: '20'
+  NPM_CONFIG_PROVENANCE: true
+
+jobs:
+  publish-canary:
+    name: Publish ${{ inputs.tag }} Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: '**/package.json'
+
+      - name: Configure npm
+        run: |
+          echo "//registry.npmjs.org/:_authToken=\${NODE_AUTH_TOKEN}" > ~/.npmrc
+          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
+          echo "access=public" >> ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install Dependencies
+        run: npm install --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Build Package
+        run: npm run build
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Generate Canary Version
+        id: version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          CANARY_VERSION="${CURRENT_VERSION}-${{ inputs.tag }}.${TIMESTAMP}"
+          
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "canary=$CANARY_VERSION" >> $GITHUB_OUTPUT
+          
+          echo "📦 Current version: $CURRENT_VERSION"
+          echo "🚀 Canary version: $CANARY_VERSION"
+
+      - name: Update Package Version
+        run: |
+          npm version ${{ steps.version.outputs.canary }} --no-git-tag-version --allow-same-version
+          echo "✅ Package version updated to ${{ steps.version.outputs.canary }}"
+
+      - name: Publish to npm
+        run: |
+          npm publish --tag ${{ inputs.tag }} --access public
+          echo "✅ Published @dcyfr/ai-cli@${{ steps.version.outputs.canary }} with tag '${{ inputs.tag }}'"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create Summary
+        run: |
+          echo "## 🚀 Canary Release Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | \`@dcyfr/ai-cli\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ steps.version.outputs.canary }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | \`${{ inputs.tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm | https://www.npmjs.com/package/@dcyfr/ai-cli |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Install" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "npm install @dcyfr/ai-cli@${{ inputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
