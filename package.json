@@ -14,12 +14,18 @@
       "import": "./dist/cli.js"
     }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
     "cli": "tsx src/cli.ts",
+    "prepublishOnly": "npm run clean && npm run build && npm run test",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
