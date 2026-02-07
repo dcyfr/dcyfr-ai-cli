@@ -18,5 +18,4 @@ pnpm-debug.log*
 *~
 coverage/
 .nyc_output/
-.changeset
 .dcyfr/
