@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import { createLogger } from '@/lib/logger.js';
 import { createDefaultRegistry } from '@/scanners/registry.js';
 import type { ScanContext } from '@/scanners/types.js';
+import { safeExit } from '@/lib/mode.js';
 import {
   buildHealthSnapshot,
   saveHealthSnapshot,
@@ -62,7 +63,7 @@ export function createValidateCommand(): Command {
           if (!options.json) {
             console.log('  ❌ Validation failed. See violations above.\n');
           }
-          process.exit(1);
+          safeExit(1);
         } else {
           if (!options.json) {
             console.log('  ✅ Validation passed.\n');
@@ -72,7 +73,7 @@ export function createValidateCommand(): Command {
         logger.error('Validation failed', {
           error: error instanceof Error ? error.message : String(error),
         });
-        process.exit(1);
+        safeExit(1);
       }
     });
 }

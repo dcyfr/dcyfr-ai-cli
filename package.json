@@ -3,15 +3,15 @@
   "version": "1.0.1",
   "description": "DCYFR AI Command-Line Interface - Portable CLI tool for DCYFR AI framework",
   "type": "module",
-  "main": "./dist/cli.js",
-  "types": "./dist/cli.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
-    "dcyfr": "./dist/cli.js"
+    "dcyfr-cli": "./bin/cli.js"
   },
   "exports": {
     ".": {
-      "types": "./dist/cli.d.ts",
-      "import": "./dist/cli.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
@@ -20,7 +20,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "build:watch": "tsc --watch",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
@@ -68,6 +68,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.18.0",
     "prettier": "^3.4.2",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^4.0.18"

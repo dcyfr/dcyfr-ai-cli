@@ -146,6 +146,85 @@ Storage: file
 Path:    .dcyfr/telemetry
 ```
 
+## 📚 Library Mode Usage
+
+You can also use `@dcyfr/ai-cli` as a library in your Node.js/TypeScript applications.
+
+### TypeScript
+
+```typescript
+import { runCLI, type CLIResult, type CLIOptions } from '@dcyfr/ai-cli';
+
+// Run CLI with custom arguments
+const result: CLIResult = await runCLI(['status'], {
+  throw: false, // Return errors as values instead of throwing
+});
+
+console.log('Exit code:', result.exitCode);
+console.log('Output:', result.stdout);
+console.log('Errors:', result.stderr);
+
+// With error throwing enabled
+try {
+  const result = await runCLI(['validate'], { throw: true });
+  console.log('Validation passed!');
+} catch (error) {
+  console.error('Validation failed:', error);
+}
+```
+
+### JavaScript (ESM)
+
+```javascript
+import { runCLI } from '@dcyfr/ai-cli';
+
+const result = await runCLI(['--version']);
+console.log(result.stdout); // "1.0.0"
+```
+
+### JavaScript (CommonJS)
+
+```javascript
+const { runCLI } = require('@dcyfr/ai-cli');
+
+(async () => {
+  const result = await runCLI(['status']);
+  if (result.exitCode === 0) {
+    console.log('Success:', result.stdout);
+  } else {
+    console.error('Error:', result.stderr);
+  }
+})();
+```
+
+### API Reference
+
+#### `runCLI(args, options)`
+
+Execute CLI commands programmatically.
+
+**Parameters:**
+- `args: string[]` - Command line arguments (defaults to `process.argv.slice(2)`)
+- `options?: CLIOptions` - Optional configuration
+
+**Returns:** `Promise<CLIResult>`
+
+**CLIOptions:**
+```typescript
+interface CLIOptions {
+  throw?: boolean; // If true, throw errors instead of returning them (default: false)
+}
+```
+
+**CLIResult:**
+```typescript
+interface CLIResult {
+  exitCode: number;  // 0 for success, non-zero for error
+  stdout: string;    // Standard output captured during execution
+  stderr: string;    // Standard error captured during execution
+}
+```
+
 ## ⚙️ Configuration
 
 The CLI looks for configuration in the following order (first found is used):
