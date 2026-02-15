@@ -119,7 +119,6 @@ export const designTokensScanner: Scanner = {
 
     const violations: ScanViolation[] = [];
     const warnings: ScanViolation[] = [];
-    let totalLines = 0;
     let filesScanned = 0;
 
     for (const filePath of files) {
@@ -132,7 +131,6 @@ export const designTokensScanner: Scanner = {
 
       filesScanned++;
       const lines = content.split('\n');
-      totalLines += lines.length;
 
       // Skip design token definition files
       const relPath = relativePath(context.workspaceRoot, filePath);
