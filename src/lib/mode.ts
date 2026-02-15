@@ -17,7 +17,10 @@ export function isLibraryMode(): boolean {
 
 export function safeExit(code: number): void {
   if (_isLibraryMode) {
-    const error = new Error(`Command exit with code ${code}`) as any;
+    const error = new Error(`Command exit with code ${code}`) as Error & {
+      exitCode: number;
+      code: string;
+    };
     error.exitCode = code;
     error.code = 'CLI_EXIT';
     throw error;
