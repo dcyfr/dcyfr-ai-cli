@@ -172,7 +172,7 @@ export const barrelExportsScanner: Scanner = {
 
         // Build export lines by scanning files for named exports
         const exportLines: string[] = [];
-        for (const file of sourceFiles.sort()) {
+        for (const file of sourceFiles.sort((a, b) => a.localeCompare(b))) {
           const moduleName = basename(file).replace(/\.(tsx?|jsx?)$/, '');
           const fullPath = join(fullDir, file);
           const content = await readFile(fullPath, 'utf-8');
