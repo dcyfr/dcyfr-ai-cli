@@ -118,7 +118,7 @@ export class FileWatcher {
     // Batch changes per scanner combination
     for (const rule of matchingRules) {
       const debounceMs = rule.debounceMs ?? this.config.debounceMs;
-      const batchKey = rule.scanners.sort().join('+');
+      const batchKey = rule.scanners.sort((a, b) => a.localeCompare(b)).join('+');
 
       const existing = this.batches.get(batchKey);
       if (existing) {

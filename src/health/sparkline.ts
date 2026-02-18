@@ -166,7 +166,7 @@ export function renderSparklineHistory(
     'api-compliance': 'API Compliance',
   };
 
-  for (const scannerId of [...scannerIds].sort()) {
+  for (const scannerId of [...scannerIds].sort((a, b) => a.localeCompare(b))) {
     const scores = history.map((h) => {
       const entry = h.scanners[scannerId];
       if (!entry) return null;
