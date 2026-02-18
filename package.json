@@ -73,6 +73,9 @@
     "typescript": "^5.7.2",
     "vitest": "^4.0.18"
   },
+  "overrides": {
+    "axios": "^1.8.2"
+  },
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
