@@ -165,61 +165,41 @@ export function validateConfig(config: unknown): ConfigValidationError[] {
   const obj = config as Record<string, unknown>;
 
   // Validate daemon section
-  if (obj['daemon'] !== undefined) {
-    const daemon = obj['daemon'];
-    if (typeof daemon !== 'object' || daemon === null) {
-      errors.push({ path: 'daemon', message: 'Must be an object', value: daemon });
-    } else {
-      const d = daemon as Record<string, unknown>;
-      validateNumber(d, 'healthInterval', 1_000, 3_600_000, errors, 'daemon');
-      validateNumber(d, 'maxMemoryMB', 64, 2048, errors, 'daemon');
-      validateNumber(d, 'gracefulShutdownTimeout', 1_000, 60_000, errors, 'daemon');
-      validateBoolean(d, 'watcherEnabled', errors, 'daemon');
-      validateBoolean(d, 'schedulerEnabled', errors, 'daemon');
-      validateNumber(d, 'watcherDebounceMs', 100, 30_000, errors, 'daemon');
-    }
+  const daemon = validateSection(obj, 'daemon', errors);
+  if (daemon) {
+    validateNumber(daemon, 'healthInterval', 1_000, 3_600_000, errors, 'daemon');
+    validateNumber(daemon, 'maxMemoryMB', 64, 2048, errors, 'daemon');
+    validateNumber(daemon, 'gracefulShutdownTimeout', 1_000, 60_000, errors, 'daemon');
+    validateBoolean(daemon, 'watcherEnabled', errors, 'daemon');
+    validateBoolean(daemon, 'schedulerEnabled', errors, 'daemon');
+    validateNumber(daemon, 'watcherDebounceMs', 100, 30_000, errors, 'daemon');
   }
 
   // Validate logs section
-  if (obj['logs'] !== undefined) {
-    const logs = obj['logs'];
-    if (typeof logs !== 'object' || logs === null) {
-      errors.push({ path: 'logs', message: 'Must be an object', value: logs });
-    } else {
-      const l = logs as Record<string, unknown>;
-      validateNumber(l, 'maxSizeBytes', 100_000, 100_000_000, errors, 'logs');
-      validateNumber(l, 'maxFiles', 1, 20, errors, 'logs');
-    }
+  const logs = validateSection(obj, 'logs', errors);
+  if (logs) {
+    validateNumber(logs, 'maxSizeBytes', 100_000, 100_000_000, errors, 'logs');
+    validateNumber(logs, 'maxFiles', 1, 20, errors, 'logs');
   }
 
   // Validate notifications section
-  if (obj['notifications'] !== undefined) {
-    const notify = obj['notifications'];
-    if (typeof notify !== 'object' || notify === null) {
-      errors.push({ path: 'notifications', message: 'Must be an object', value: notify });
-    } else {
-      const n = notify as Record<string, unknown>;
-      validateBoolean(n, 'terminalBell', errors, 'notifications');
-      validateBoolean(n, 'osNotification', errors, 'notifications');
-      validateNumber(n, 'threshold', 1, 50, errors, 'notifications');
-      validateNumber(n, 'cooldownMs', 10_000, 3_600_000, errors, 'notifications');
-      if (n['webhookUrl'] !== undefined && typeof n['webhookUrl'] !== 'string') {
-        errors.push({ path: 'notifications.webhookUrl', message: 'Must be a string (URL)', value: n['webhookUrl'] });
-      }
+  const notify = validateSection(obj, 'notifications', errors);
+  if (notify) {
+    validateBoolean(notify, 'terminalBell', errors, 'notifications');
+    validateBoolean(notify, 'osNotification', errors, 'notifications');
+    validateNumber(notify, 'threshold', 1, 50, errors, 'notifications');
+    validateNumber(notify, 'cooldownMs', 10_000, 3_600_000, errors, 'notifications');
+    if (notify['webhookUrl'] !== undefined && typeof notify['webhookUrl'] !== 'string') {
+      errors.push({ path: 'notifications.webhookUrl', message: 'Must be a string (URL)', value: notify['webhookUrl'] });
     }
   }
 
   // Validate AI section
-  if (obj['ai'] !== undefined) {
-    const ai = obj['ai'];
-    if (typeof ai !== 'object' || ai === null) {
-      errors.push({ path: 'ai', message: 'Must be an object', value: ai });
-    } else {
-      const a = ai as Record<string, unknown>;
-      validateNumber(a, 'maxTokens', 256, 32_768, errors, 'ai');
-      validateNumber(a, 'temperature', 0, 2, errors, 'ai');
-      validateNumber(a, 'rateLimitPerMinute', 1, 1000, errors, 'ai');
-    }
+  const ai = validateSection(obj, 'ai', errors);
+  if (ai) {
+    validateNumber(ai, 'maxTokens', 256, 32_768, errors, 'ai');
+    validateNumber(ai, 'temperature', 0, 2, errors, 'ai');
+    validateNumber(ai, 'rateLimitPerMinute', 1, 1000, errors, 'ai');
   }
 
   return errors;
@@ -387,6 +367,24 @@ function validateBoolean(
       value: val,
     });
   }
+}
+
+/**
+ * Validate that a config section is an object.
+ * Returns the section as a typed record if valid, or null (and pushes an error) if not.
+ */
+function validateSection(
+  obj: Record<string, unknown>,
+  section: string,
+  errors: ConfigValidationError[],
+): Record<string, unknown> | null {
+  const value = obj[section];
+  if (value === undefined) return null;
+  if (typeof value !== 'object' || value === null) {
+    errors.push({ path: section, message: 'Must be an object', value });
+    return null;
+  }
+  return value as Record<string, unknown>;
 }
 
 /**

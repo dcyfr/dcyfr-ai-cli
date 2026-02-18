@@ -38,6 +38,44 @@ export interface DiscoverOptions {
 }
 
 /**
+ * Walk a single directory level, recursing into subdirectories.
+ * Mutates `files` array in place.
+ */
+async function walkDir(
+  dir: string,
+  depth: number,
+  maxDepth: number,
+  ignoreSet: Set<string>,
+  extensions: string[] | undefined,
+  pathPattern: RegExp | undefined,
+  files: string[],
+): Promise<void> {
+  if (depth > maxDepth) return;
+
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return; // Skip unreadable directories
+  }
+
+  for (const entry of entries) {
+    if (ignoreSet.has(entry.name)) continue;
+    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+
+    const fullPath = join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      await walkDir(fullPath, depth + 1, maxDepth, ignoreSet, extensions, pathPattern, files);
+    } else if (entry.isFile()) {
+      if (extensions && !extensions.includes(extname(entry.name))) continue;
+      if (pathPattern && !pathPattern.test(fullPath)) continue;
+      files.push(fullPath);
+    }
+  }
+}
+
+/**
  * Recursively discover files matching criteria
  */
 export async function discoverFiles(
@@ -47,35 +85,7 @@ export async function discoverFiles(
   const { extensions, ignore = [], pathPattern, maxDepth = 20 } = options;
   const ignoreSet = new Set([...DEFAULT_IGNORE, ...ignore]);
   const files: string[] = [];
-
-  async function walk(dir: string, depth: number): Promise<void> {
-    if (depth > maxDepth) return;
-
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return; // Skip unreadable directories
-    }
-
-    for (const entry of entries) {
-      if (ignoreSet.has(entry.name)) continue;
-      if (entry.name.startsWith('.') && entry.name !== '.') continue;
-
-      const fullPath = join(dir, entry.name);
-
-      if (entry.isDirectory()) {
-        await walk(fullPath, depth + 1);
-      } else if (entry.isFile()) {
-        const ext = extname(entry.name);
-        if (extensions && !extensions.includes(ext)) continue;
-        if (pathPattern && !pathPattern.test(fullPath)) continue;
-        files.push(fullPath);
-      }
-    }
-  }
-
-  await walk(root, 0);
+  await walkDir(root, 0, maxDepth, ignoreSet, extensions, pathPattern, files);
   return files;
 }
 
