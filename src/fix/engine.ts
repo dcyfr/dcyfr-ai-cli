@@ -178,64 +178,77 @@ export function listFixableScanners(registry: ScannerRegistry): Scanner[] {
 }
 
 /**
- * Render a fix report to the console
+ * Render report header
  */
-export function renderFixReport(report: FixRunReport): string {
-  const lines: string[] = [];
-
-  if (report.dryRun) {
-    lines.push('');
+function renderReportHeader(dryRun: boolean): string[] {
+  const lines: string[] = [''];
+  if (dryRun) {
     lines.push('  🔍 DRY RUN — no changes applied');
     lines.push('  ─'.padEnd(52, '─'));
   } else {
-    lines.push('');
     lines.push('  🔧 Auto-Fix Report');
     lines.push('  ─'.padEnd(52, '─'));
   }
+  return lines;
+}
 
-  for (const entry of report.results) {
-    const icon = entry.error
-      ? '❌'
-      : entry.autoFixableCount === 0
-        ? '✅'
-        : report.dryRun
-          ? '📋'
-          : '🔧';
+/**
+ * Render a single scanner entry in the fix report
+ */
+function renderReportEntry(
+  entry: FixResultEntry,
+  dryRun: boolean,
+): string[] {
+  const lines: string[] = [];
+  const icon = entry.error
+    ? '❌'
+    : entry.autoFixableCount === 0
+      ? '✅'
+      : dryRun
+        ? '📋'
+        : '🔧';
 
-    lines.push(`  ${icon} ${entry.scannerName}`);
+  lines.push(`  ${icon} ${entry.scannerName}`);
 
-    if (entry.error) {
-      lines.push(`     Error: ${entry.error}`);
-      continue;
-    }
+  if (entry.error) {
+    lines.push(`     Error: ${entry.error}`);
+    return lines;
+  }
 
-    if (entry.autoFixableCount === 0) {
-      lines.push('     No auto-fixable violations');
-      continue;
-    }
+  if (entry.autoFixableCount === 0) {
+    lines.push('     No auto-fixable violations');
+    return lines;
+  }
 
-    if (report.dryRun) {
-      lines.push(`     ${entry.autoFixableCount} violations can be auto-fixed`);
-      continue;
-    }
+  if (dryRun) {
+    lines.push(`     ${entry.autoFixableCount} violations can be auto-fixed`);
+    return lines;
+  }
 
-    if (entry.fixResult) {
-      lines.push(`     Applied: ${entry.fixResult.fixesApplied} fixes`);
-      lines.push(`     Files modified: ${entry.fixResult.filesModified.length}`);
-      if (entry.fixResult.failures.length > 0) {
-        lines.push(`     ⚠️  Failures: ${entry.fixResult.failures.length}`);
-        for (const f of entry.fixResult.failures) {
-          lines.push(`        • ${f.file}: ${f.reason}`);
-        }
+  if (entry.fixResult) {
+    lines.push(`     Applied: ${entry.fixResult.fixesApplied} fixes`);
+    lines.push(`     Files modified: ${entry.fixResult.filesModified.length}`);
+    if (entry.fixResult.failures.length > 0) {
+      lines.push(`     ⚠️  Failures: ${entry.fixResult.failures.length}`);
+      for (const f of entry.fixResult.failures) {
+        lines.push(`        • ${f.file}: ${f.reason}`);
       }
     }
   }
 
-  lines.push('');
-  lines.push('  ─'.padEnd(52, '─'));
+  return lines;
+}
+
+/**
+ * Render report footer with summary
+ */
+function renderReportFooter(
+  report: FixRunReport,
+): string[] {
+  const lines: string[] = ['', '  ─'.padEnd(52, '─')];
 
   if (report.dryRun) {
-    const total = report.results.reduce((s, r) => s + r.autoFixableCount, 0);
+    const total = report.results.reduce((s: number, r: FixResultEntry) => s + r.autoFixableCount, 0);
     lines.push(`  Total fixable: ${total} violations`);
     lines.push('  Run without --dry-run to apply fixes');
   } else {
@@ -248,6 +261,22 @@ export function renderFixReport(report: FixRunReport): string {
 
   lines.push(`  Duration: ${report.duration}ms`);
   lines.push('');
+  return lines;
+}
+
+/**
+ * Render a fix report to the console
+ */
+export function renderFixReport(report: FixRunReport): string {
+  const lines: string[] = [];
+
+  lines.push(...renderReportHeader(report.dryRun));
+
+  for (const entry of report.results) {
+    lines.push(...renderReportEntry(entry, report.dryRun));
+  }
+
+  lines.push(...renderReportFooter(report));
 
   return lines.join('\n');
 }

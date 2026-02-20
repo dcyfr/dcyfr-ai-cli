@@ -49,6 +49,65 @@ const PATTERNS = {
   securityHeaders: /(?:CORS|security.headers|x-frame-options|content-security-policy)/i,
 };
 
+/**
+ * Check route handler method for validation compliance
+ */
+function checkMethodValidation(
+  method: string,
+  content: string,
+  relPath: string,
+  lineNum: number,
+  violations: ScanViolation[],
+): void {
+  if (!['POST', 'PUT', 'PATCH'].includes(method)) return;
+
+  // Check for input validation
+  if (!PATTERNS.inputValidation.test(content)) {
+    violations.push({
+      id: 'missing-input-validation',
+      severity: 'warning',
+      message: `${method} handler missing input validation: ${relPath}`,
+      file: relPath,
+      line: lineNum,
+      fix: 'Add request body validation (Zod schema recommended)',
+    });
+  }
+
+  // Check for async work without Inngest
+  if (!PATTERNS.inngestSend.test(content) && content.length > 500) {
+    violations.push({
+      id: 'missing-async-pattern',
+      severity: 'info',
+      message: `${method} handler may need Validate→Queue→Respond pattern: ${relPath}`,
+      file: relPath,
+      line: lineNum,
+      fix: 'Consider using inngest.send() for async processing',
+    });
+  }
+}
+
+/**
+ * Check route handler for error handling
+ */
+function checkErrorHandling(
+  method: string,
+  content: string,
+  relPath: string,
+  lineNum: number,
+  violations: ScanViolation[],
+): void {
+  if (!PATTERNS.tryCatch.test(content)) {
+    violations.push({
+      id: 'missing-error-handling',
+      severity: 'warning',
+      message: `${method} handler missing try/catch error handling: ${relPath}`,
+      file: relPath,
+      line: lineNum,
+      fix: 'Wrap handler logic in try/catch with proper error responses',
+    });
+  }
+}
+
 async function staticApiScan(
   context: ScanContext,
   files: string[],
@@ -85,45 +144,13 @@ async function staticApiScan(
     for (const method of handlers) {
       const lineNum = content.slice(0, content.indexOf(`function ${method}`)).split('\n').length;
 
-      // Check: POST/PUT/PATCH should use Validate → Queue → Respond
-      if (['POST', 'PUT', 'PATCH'].includes(method)) {
-        // Check for input validation
-        if (!PATTERNS.inputValidation.test(content)) {
-          fileCompliant = false;
-          violations.push({
-            id: 'missing-input-validation',
-            severity: 'warning',
-            message: `${method} handler missing input validation: ${relPath}`,
-            file: relPath,
-            line: lineNum,
-            fix: 'Add request body validation (Zod schema recommended)',
-          });
-        }
+      // Check validation and async pattern compliance
+      const violationsBefore = violations.length;
+      checkMethodValidation(method, content, relPath, lineNum, violations);
+      checkErrorHandling(method, content, relPath, lineNum, violations);
 
-        // Check for async work without Inngest
-        if (!PATTERNS.inngestSend.test(content) && content.length > 500) {
-          violations.push({
-            id: 'missing-async-pattern',
-            severity: 'info',
-            message: `${method} handler may need Validate→Queue→Respond pattern: ${relPath}`,
-            file: relPath,
-            line: lineNum,
-            fix: 'Consider using inngest.send() for async processing',
-          });
-        }
-      }
-
-      // Check: error handling
-      if (!PATTERNS.tryCatch.test(content)) {
+      if (violations.length > violationsBefore) {
         fileCompliant = false;
-        violations.push({
-          id: 'missing-error-handling',
-          severity: 'warning',
-          message: `${method} handler missing try/catch error handling: ${relPath}`,
-          file: relPath,
-          line: lineNum,
-          fix: 'Wrap handler logic in try/catch with proper error responses',
-        });
       }
     }
 

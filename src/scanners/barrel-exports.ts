@@ -26,6 +26,73 @@ const BARREL_DIRS = [
   'src/hooks',
 ];
 
+/**
+ * Check if directory needs barrel export
+ */
+async function checkMissingBarrel(
+  fullDir: string,
+  dir: string,
+  violations: ScanViolation[],
+): Promise<boolean> {
+  let entries;
+  try {
+    entries = await readdir(fullDir);
+  } catch {
+    return false;
+  }
+
+  const hasSourceFiles = entries.some(
+    (e) => (e.endsWith('.ts') || e.endsWith('.tsx')) && e !== 'index.ts' && e !== 'index.tsx',
+  );
+
+  if (hasSourceFiles) {
+    violations.push({
+      id: 'missing-barrel-export',
+      severity: 'error',
+      message: `Missing barrel export (index.ts) in ${dir}`,
+      file: join(dir, 'index.ts'),
+      fix: `Create ${dir}/index.ts with exports for all components`,
+      autoFixable: true,
+    });
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Validate existing barrel export content
+ */
+async function validateBarrelExportContent(
+  fullDir: string,
+  dir: string,
+  workspaceRoot: string,
+  warnings: ScanViolation[],
+): Promise<void> {
+  const indexPath = (await pathExists(join(fullDir, 'index.ts')))
+    ? join(fullDir, 'index.ts')
+    : join(fullDir, 'index.tsx');
+
+  let content: string;
+  try {
+    content = await readFile(indexPath, 'utf-8');
+  } catch {
+    return;
+  }
+
+  // Check for empty barrel files
+  const exportCount = (content.match(/export\s/g) || []).length;
+  if (exportCount === 0) {
+    warnings.push({
+      id: 'empty-barrel-export',
+      severity: 'warning',
+      message: `Barrel export exists but has no exports in ${dir}/index.ts`,
+      file: relativePath(workspaceRoot, indexPath),
+      fix: 'Add export statements for all public components',
+    });
+  }
+}
+
 export const barrelExportsScanner: Scanner = {
   id: 'barrel-exports',
   name: 'Barrel Export Compliance',
@@ -56,54 +123,10 @@ export const barrelExportsScanner: Scanner = {
         (await pathExists(join(fullDir, 'index.tsx')));
 
       if (!hasIndex) {
-        // Check if directory has any .ts/.tsx files
-        let entries;
-        try {
-          entries = await readdir(fullDir);
-        } catch {
-          continue;
-        }
-
-        const hasSourceFiles = entries.some(
-          (e) => (e.endsWith('.ts') || e.endsWith('.tsx')) && e !== 'index.ts' && e !== 'index.tsx',
-        );
-
-        if (hasSourceFiles) {
-          violations.push({
-            id: 'missing-barrel-export',
-            severity: 'error',
-            message: `Missing barrel export (index.ts) in ${dir}`,
-            file: join(dir, 'index.ts'),
-            fix: `Create ${dir}/index.ts with exports for all components`,
-            autoFixable: true,
-          });
-        }
+        await checkMissingBarrel(fullDir, dir, violations);
       } else {
         dirsWithBarrel++;
-
-        // Validate the barrel file re-exports components
-        const indexPath = (await pathExists(join(fullDir, 'index.ts')))
-          ? join(fullDir, 'index.ts')
-          : join(fullDir, 'index.tsx');
-
-        let content: string;
-        try {
-          content = await readFile(indexPath, 'utf-8');
-        } catch {
-          continue;
-        }
-
-        // Check for empty barrel files
-        const exportCount = (content.match(/export\s/g) || []).length;
-        if (exportCount === 0) {
-          warnings.push({
-            id: 'empty-barrel-export',
-            severity: 'warning',
-            message: `Barrel export exists but has no exports in ${dir}/index.ts`,
-            file: relativePath(context.workspaceRoot, indexPath),
-            fix: 'Add export statements for all public components',
-          });
-        }
+        await validateBarrelExportContent(fullDir, dir, context.workspaceRoot, warnings);
       }
     }
 
