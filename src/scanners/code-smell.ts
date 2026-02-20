@@ -91,6 +91,81 @@ function analyzeFileMetrics(content: string): FileMetrics {
   };
 }
 
+/**
+ * Check file for code smells and add violations
+ */
+async function checkFileForSmells(
+  filePath: string,
+  workspaceRoot: string,
+  violations: ScanViolation[],
+): Promise<number> {
+  let content: string;
+  try {
+    content = await readFile(filePath, 'utf-8');
+  } catch {
+    return 0;
+  }
+
+  const relPath = relativePath(workspaceRoot, filePath);
+  const metrics = analyzeFileMetrics(content);
+  let smellsFound = 0;
+
+  // God file: >500 lines
+  if (metrics.lineCount > 500) {
+    smellsFound++;
+    violations.push({
+      id: 'god-file',
+      severity: metrics.lineCount > 1000 ? 'error' : 'warning',
+      message: `Large file (${metrics.lineCount} lines): ${relPath}`,
+      file: relPath,
+      fix: 'Consider splitting into smaller, focused modules',
+    });
+  }
+
+  // Long function: >80 lines
+  if (metrics.longestFunction > 80) {
+    smellsFound++;
+    violations.push({
+      id: 'long-function',
+      severity: metrics.longestFunction > 150 ? 'error' : 'warning',
+      message: `Function with ${metrics.longestFunction} lines in ${relPath}`,
+      file: relPath,
+      fix: 'Extract sub-operations into helper functions',
+    });
+  }
+
+  // Deep nesting: >5 levels
+  if (metrics.maxNestingDepth > 5) {
+    smellsFound++;
+    violations.push({
+      id: 'deep-nesting',
+      severity: metrics.maxNestingDepth > 8 ? 'error' : 'warning',
+      message: `Nesting depth of ${metrics.maxNestingDepth} in ${relPath}`,
+      file: relPath,
+      fix: 'Use early returns, extract conditions, or flatten with Promise.all',
+    });
+  }
+
+  // Excessive file size (>50KB)
+  try {
+    const fileStat = await stat(filePath);
+    if (fileStat.size > 50_000) {
+      smellsFound++;
+      violations.push({
+        id: 'oversized-file',
+        severity: 'warning',
+        message: `File is ${Math.round(fileStat.size / 1024)}KB: ${relPath}`,
+        file: relPath,
+        fix: 'Large files are harder to maintain — consider splitting',
+      });
+    }
+  } catch {
+    // stat failed, skip
+  }
+
+  return smellsFound;
+}
+
 async function staticCodeSmellScan(
   context: ScanContext,
   files: string[],
@@ -101,69 +176,9 @@ async function staticCodeSmellScan(
   let smellsFound = 0;
 
   for (const filePath of files) {
-    let content: string;
-    try {
-      content = await readFile(filePath, 'utf-8');
-    } catch {
-      continue;
-    }
-
     filesChecked++;
-    const relPath = relativePath(context.workspaceRoot, filePath);
-    const metrics = analyzeFileMetrics(content);
-
-    // God file: >500 lines
-    if (metrics.lineCount > 500) {
-      smellsFound++;
-      violations.push({
-        id: 'god-file',
-        severity: metrics.lineCount > 1000 ? 'error' : 'warning',
-        message: `Large file (${metrics.lineCount} lines): ${relPath}`,
-        file: relPath,
-        fix: 'Consider splitting into smaller, focused modules',
-      });
-    }
-
-    // Long function: >80 lines
-    if (metrics.longestFunction > 80) {
-      smellsFound++;
-      violations.push({
-        id: 'long-function',
-        severity: metrics.longestFunction > 150 ? 'error' : 'warning',
-        message: `Function with ${metrics.longestFunction} lines in ${relPath}`,
-        file: relPath,
-        fix: 'Extract sub-operations into helper functions',
-      });
-    }
-
-    // Deep nesting: >5 levels
-    if (metrics.maxNestingDepth > 5) {
-      smellsFound++;
-      violations.push({
-        id: 'deep-nesting',
-        severity: metrics.maxNestingDepth > 8 ? 'error' : 'warning',
-        message: `Nesting depth of ${metrics.maxNestingDepth} in ${relPath}`,
-        file: relPath,
-        fix: 'Use early returns, extract conditions, or flatten with Promise.all',
-      });
-    }
-
-    // Excessive file size (>50KB)
-    try {
-      const fileStat = await stat(filePath);
-      if (fileStat.size > 50_000) {
-        smellsFound++;
-        violations.push({
-          id: 'oversized-file',
-          severity: 'warning',
-          message: `File is ${Math.round(fileStat.size / 1024)}KB: ${relPath}`,
-          file: relPath,
-          fix: 'Large files are harder to maintain — consider splitting',
-        });
-      }
-    } catch {
-      // stat failed, skip
-    }
+    const fileSmells = await checkFileForSmells(filePath, context.workspaceRoot, violations);
+    smellsFound += fileSmells;
   }
 
   const smellRate = filesChecked > 0 ? smellsFound / filesChecked : 0;
