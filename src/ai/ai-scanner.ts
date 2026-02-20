@@ -150,6 +150,46 @@ export async function runAIAnalysis(
 }
 
 /**
+ * Determine scan status based on violation counts
+ */
+function determineScanStatus(
+  offline: boolean,
+  errorCount: number,
+  warningCount: number,
+): 'skipped' | 'fail' | 'warn' | 'pass' {
+  if (offline) return 'skipped';
+  if (errorCount > 0) return 'fail';
+  if (warningCount > 0) return 'warn';
+  return 'pass';
+}
+
+/**
+ * Build summary text for scan result
+ */
+function buildScanSummary(
+  offline: boolean,
+  filesAnalyzed: number,
+  providerUsed: string | null,
+  errorCount: number,
+  warningCount: number,
+  infoCount: number,
+  totalTokens: number,
+): string {
+  if (offline) {
+    return 'Skipped (no AI provider available)';
+  }
+
+  const parts: string[] = [];
+  parts.push(`Analyzed ${filesAnalyzed} files via ${providerUsed}`);
+  if (errorCount > 0) parts.push(`${errorCount} errors`);
+  if (warningCount > 0) parts.push(`${warningCount} warnings`);
+  if (infoCount > 0) parts.push(`${infoCount} info`);
+  if (errorCount === 0 && warningCount === 0) parts.push('no issues found');
+  parts.push(`(${totalTokens} tokens)`);
+  return parts.join(' · ');
+}
+
+/**
  * Build a scan result from AI analysis results
  */
 export function buildAIScanResult(
@@ -166,25 +206,16 @@ export function buildAIScanResult(
   const warnings = allViolations.filter((v) => v.severity === 'warning');
   const infos = allViolations.filter((v) => v.severity === 'info');
 
-  const status = offline
-    ? 'skipped' as const
-    : errors.length > 0
-      ? 'fail' as const
-      : warnings.length > 0
-        ? 'warn' as const
-        : 'pass' as const;
-
-  const summaryParts: string[] = [];
-  if (offline) {
-    summaryParts.push('Skipped (no AI provider available)');
-  } else {
-    summaryParts.push(`Analyzed ${filesAnalyzed} files via ${providerUsed}`);
-    if (errors.length > 0) summaryParts.push(`${errors.length} errors`);
-    if (warnings.length > 0) summaryParts.push(`${warnings.length} warnings`);
-    if (infos.length > 0) summaryParts.push(`${infos.length} info`);
-    if (errors.length === 0 && warnings.length === 0) summaryParts.push('no issues found');
-    summaryParts.push(`(${totalTokens} tokens)`);
-  }
+  const status = determineScanStatus(offline, errors.length, warnings.length);
+  const summary = buildScanSummary(
+    offline,
+    filesAnalyzed,
+    providerUsed,
+    errors.length,
+    warnings.length,
+    infos.length,
+    totalTokens,
+  );
 
   return {
     scanner: scannerId,
@@ -201,8 +232,36 @@ export function buildAIScanResult(
     },
     duration,
     timestamp: new Date().toISOString(),
-    summary: summaryParts.join(' · '),
+    summary,
   };
+}
+
+/**
+ * Extract JSON objects line-by-line from malformed response
+ */
+function extractJSONObjectsLineByLine<T>(text: string): T[] {
+  const objects: T[] = [];
+  const lines = text.split('\n');
+  let buffer = '';
+  let depth = 0;
+
+  for (const line of lines) {
+    for (const char of line) {
+      if (char === '{') depth++;
+      if (char === '}') depth--;
+    }
+    buffer += line + '\n';
+    if (depth === 0 && buffer.trim()) {
+      try {
+        objects.push(JSON.parse(buffer.trim()));
+      } catch {
+        // Skip malformed
+      }
+      buffer = '';
+    }
+  }
+
+  return objects;
 }
 
 /**
@@ -221,27 +280,6 @@ export function parseJSONFromLLM<T>(response: string): T[] {
     return Array.isArray(parsed) ? parsed : [parsed];
   } catch {
     // Try line-by-line JSON object extraction
-    const objects: T[] = [];
-    const lines = cleaned.split('\n');
-    let buffer = '';
-    let depth = 0;
-
-    for (const line of lines) {
-      for (const char of line) {
-        if (char === '{') depth++;
-        if (char === '}') depth--;
-      }
-      buffer += line + '\n';
-      if (depth === 0 && buffer.trim()) {
-        try {
-          objects.push(JSON.parse(buffer.trim()));
-        } catch {
-          // Skip malformed
-        }
-        buffer = '';
-      }
-    }
-
-    return objects;
+    return extractJSONObjectsLineByLine<T>(cleaned);
   }
 }
