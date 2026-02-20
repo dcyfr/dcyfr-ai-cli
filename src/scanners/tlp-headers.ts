@@ -27,6 +27,47 @@ const EXEMPT_FILES = new Set([
   'CODE_OF_CONDUCT.md',
 ]);
 
+/**
+ * Check a single file for TLP header compliance
+ */
+function checkFileTlpHeader(
+  content: string,
+  relPath: string,
+  violations: ScanViolation[],
+  warnings: ScanViolation[],
+): boolean {
+  // Check for TLP header in the first 5 lines
+  const head = content.split('\n').slice(0, 5).join('\n');
+  const tlpMatch = TLP_PATTERN.exec(head);
+
+  if (tlpMatch) {
+    return true; // Has TLP header in correct location
+  }
+
+  // Check if TLP exists anywhere in the file (misplaced)
+  const bodyMatch = TLP_PATTERN.exec(content);
+  if (bodyMatch) {
+    warnings.push({
+      id: 'tlp-misplaced',
+      severity: 'warning',
+      message: `TLP header found but not in first 5 lines: ${relPath}`,
+      file: relPath,
+      fix: 'Move TLP classification comment to the first line of the file',
+    });
+    return true; // Still counts as having TLP
+  }
+
+  // Missing TLP header
+  violations.push({
+    id: 'missing-tlp-header',
+    severity: 'warning',
+    message: `Missing TLP classification header: ${relPath}`,
+    file: relPath,
+    fix: 'Add TLP classification comment at the top of the file (e.g., <!-- TLP:GREEN -->)',
+  });
+  return false;
+}
+
 export const tlpHeadersScanner: Scanner = {
   id: 'tlp-headers',
   name: 'TLP Classification',
@@ -65,36 +106,9 @@ export const tlpHeadersScanner: Scanner = {
 
       filesChecked++;
 
-      // Check for TLP header in the first 5 lines
-      const head = content.split('\n').slice(0, 5).join('\n');
-      const tlpMatch = TLP_PATTERN.exec(head);
-
-      if (tlpMatch) {
-        filesWithTlp++;
-      } else {
-        // Check if TLP exists anywhere in the file (misplaced)
-        const bodyMatch = TLP_PATTERN.exec(content);
-        if (bodyMatch) {
-          warnings.push({
-            id: 'tlp-misplaced',
-            severity: 'warning',
-            message: `TLP header found but not in first 5 lines: ${relPath}`,
-            file: relPath,
-            fix: 'Move TLP classification comment to the first line of the file',
-          });
-          filesWithTlp++; // Still counts as having TLP
-        } else {
-          violations.push({
-            id: 'missing-tlp-header',
-            severity: 'warning',
-            message: `Missing TLP classification header: ${relPath}`,
-            file: relPath,
-            line: 1,
-            fix: 'Add <!-- TLP:CLEAR --> or appropriate classification to line 1',
-            autoFixable: true,
-          });
-        }
-      }
+      // Check file for TLP header
+      const hasTlp = checkFileTlpHeader(content, relPath, violations, warnings);
+      if (hasTlp) filesWithTlp++;
     }
 
     const compliance = filesChecked > 0 ? filesWithTlp / filesChecked : 1;

@@ -43,6 +43,37 @@ const SENSITIVE_PATTERNS = [
   },
 ];
 
+/**
+ * Check a single line for sensitive patterns
+ */
+function checkLineForSensitiveData(
+  line: string,
+  lineIdx: number,
+  relPath: string,
+  patternName: string,
+  pattern: RegExp,
+  violations: ScanViolation[],
+): void {
+  const lineRegex = new RegExp(pattern.source, pattern.flags);
+  let match;
+
+  while ((match = lineRegex.exec(line)) !== null) {
+    // Don't flag things in comments explaining the pattern
+    if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
+
+    violations.push({
+      id: `sensitive-${patternName.toLowerCase().replace(/\s+/g, '-')}`,
+      severity: 'error',
+      message: `Potential ${patternName} found in test file: ${relPath}:${lineIdx + 1}`,
+      file: relPath,
+      line: lineIdx + 1,
+      column: match.index,
+      fix: `Replace with mock/fake data (e.g., 'test-api-key-123')`,
+      autoFixable: false,
+    });
+  }
+}
+
 export const testDataGuardianScanner: Scanner = {
   id: 'test-data-guardian',
   name: 'Test Data Guardian',
@@ -78,24 +109,7 @@ export const testDataGuardianScanner: Scanner = {
       for (const { name, pattern } of SENSITIVE_PATTERNS) {
         for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
           const line = lines[lineIdx]!;
-          const lineRegex = new RegExp(pattern.source, pattern.flags);
-          let match;
-
-          while ((match = lineRegex.exec(line)) !== null) {
-            // Don't flag things in comments explaining the pattern
-            if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
-
-            violations.push({
-              id: `sensitive-${name.toLowerCase().replace(/\s+/g, '-')}`,
-              severity: 'error',
-              message: `Potential ${name} found in test file: ${relPath}:${lineIdx + 1}`,
-              file: relPath,
-              line: lineIdx + 1,
-              column: match.index,
-              fix: `Replace with mock/fake data (e.g., 'test-api-key-123')`,
-              autoFixable: false,
-            });
-          }
+          checkLineForSensitiveData(line, lineIdx, relPath, name, pattern, violations);
         }
       }
     }

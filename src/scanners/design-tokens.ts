@@ -94,6 +94,43 @@ const COLOR_RULES: TokenRule[] = [
 const ALL_TOKEN_RULES: TokenRule[] = [...SPACING_RULES, ...TYPOGRAPHY_RULES, ...COLOR_RULES];
 
 /**
+ * Check a single line for token rule violations
+ */
+function checkLineForTokenViolations(
+  line: string,
+  lineIdx: number,
+  relPath: string,
+  rule: TokenRule,
+  violations: ScanViolation[],
+  warnings: ScanViolation[],
+): void {
+  // Skip comment lines
+  if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) return;
+
+  // Create a new regex for each line to avoid lastIndex issues
+  const lineRegex = new RegExp(rule.pattern.source, rule.pattern.flags);
+  let match;
+  while ((match = lineRegex.exec(line)) !== null) {
+    const violation: ScanViolation = {
+      id: rule.id,
+      severity: rule.severity === 'error' ? 'error' : 'warning',
+      message: `${rule.name}: '${match[0]}' — ${rule.fix}`,
+      file: relPath,
+      line: lineIdx + 1,
+      column: match.index,
+      fix: rule.fix,
+      autoFixable: false,
+    };
+
+    if (rule.severity === 'error') {
+      violations.push(violation);
+    } else {
+      warnings.push(violation);
+    }
+  }
+}
+
+/**
  * Design token compliance scanner
  */
 export const designTokensScanner: Scanner = {
@@ -142,30 +179,7 @@ export const designTokensScanner: Scanner = {
 
         for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
           const line = lines[lineIdx]!;
-          // Skip comment lines
-          if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
-
-          let match;
-          // Create a new regex for each line to avoid lastIndex issues
-          const lineRegex = new RegExp(rule.pattern.source, rule.pattern.flags);
-          while ((match = lineRegex.exec(line)) !== null) {
-            const violation: ScanViolation = {
-              id: rule.id,
-              severity: rule.severity === 'error' ? 'error' : 'warning',
-              message: `${rule.name}: '${match[0]}' — ${rule.fix}`,
-              file: relPath,
-              line: lineIdx + 1,
-              column: match.index,
-              fix: rule.fix,
-              autoFixable: false,
-            };
-
-            if (rule.severity === 'error') {
-              violations.push(violation);
-            } else {
-              warnings.push(violation);
-            }
-          }
+          checkLineForTokenViolations(line, lineIdx, relPath, rule, violations, warnings);
         }
       }
     }
