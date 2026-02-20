@@ -28,6 +28,63 @@ import { findWorkspaceRoot } from '@/lib/workspace.js';
 
 const logger = createLogger('scan');
 
+/**
+ * Handle quick scan mode with changed files
+ */
+async function handleQuickMode(
+  workspaceRoot: string,
+  context: ScanContext,
+  isJsonOutput: boolean,
+): Promise<boolean> {
+  const changed = await getChangedFiles(workspaceRoot);
+  if (changed.length === 0) {
+    if (isJsonOutput) {
+      console.log(JSON.stringify({ message: 'No changed files', results: [] }));
+    } else {
+      console.log('\n  ✅ No changed files to scan.\n');
+    }
+    return true; // Early exit
+  }
+  context.files = changed;
+  return false; // Continue scanning
+}
+
+/**
+ * Execute scan with specific scanner or all scanners
+ */
+async function executeScan(
+  registry: Awaited<ReturnType<typeof createDefaultRegistry>>,
+  scannerArg: string | undefined,
+  context: ScanContext,
+): Promise<ScanResult[]> {
+  if (scannerArg) {
+    const scanner = registry.get(scannerArg);
+    if (!scanner) {
+      console.error(`\n  ❌ Unknown scanner: ${scannerArg}`);
+      console.error(`  Available scanners: ${registry.ids().join(', ')}\n`);
+      process.exit(1);
+    }
+    return [await scanner.scan(context)];
+  }
+  return registry.runAll(context);
+}
+
+/**
+ * Save health snapshot with project count
+ */
+async function saveHealthSnapshotIfEnabled(
+  workspaceRoot: string,
+  results: ScanResult[],
+  shouldSave: boolean,
+): Promise<void> {
+  if (shouldSave) {
+    const snapshot = buildHealthSnapshot(results);
+    const projects = await listProjects(workspaceRoot);
+    snapshot.workspace.packages = projects.length;
+    await saveHealthSnapshot(workspaceRoot, snapshot);
+  }
+}
+
 export function createScanCommand(): Command {
   const cmd = new Command('scan')
     .description('Run workspace scanners')
@@ -49,35 +106,14 @@ export function createScanCommand(): Command {
           verbose: options.verbose,
         };
 
-        // Quick mode: only scan changed files
+        // Quick mode: handle early exit if no changed files
         if (options.quick) {
-          const changed = await getChangedFiles(workspaceRoot);
-          if (changed.length === 0) {
-            if (options.json) {
-              console.log(JSON.stringify({ message: 'No changed files', results: [] }));
-            } else {
-              console.log('\n  ✅ No changed files to scan.\n');
-            }
-            return;
-          }
-          context.files = changed;
+          const shouldExit = await handleQuickMode(workspaceRoot, context, !!options.json);
+          if (shouldExit) return;
         }
 
-        let results: ScanResult[];
-
-        if (scannerArg) {
-          // Run a specific scanner
-          const scanner = registry.get(scannerArg);
-          if (!scanner) {
-            console.error(`\n  ❌ Unknown scanner: ${scannerArg}`);
-            console.error(`  Available scanners: ${registry.ids().join(', ')}\n`);
-            process.exit(1);
-          }
-          results = [await scanner.scan(context)];
-        } else {
-          // Run all scanners
-          results = await registry.runAll(context);
-        }
+        // Execute scan
+        const results = await executeScan(registry, scannerArg, context);
 
         // Output results
         if (options.json) {
@@ -87,12 +123,7 @@ export function createScanCommand(): Command {
         }
 
         // Save health snapshot
-        if (options.save !== false) {
-          const snapshot = buildHealthSnapshot(results);
-          const projects = await listProjects(workspaceRoot);
-          snapshot.workspace.packages = projects.length;
-          await saveHealthSnapshot(workspaceRoot, snapshot);
-        }
+        await saveHealthSnapshotIfEnabled(workspaceRoot, results, options.save !== false);
 
         // Exit with non-zero if any scanner failed
         const hasFailed = results.some((r) => r.status === 'fail');

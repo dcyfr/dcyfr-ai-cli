@@ -38,6 +38,32 @@ export interface DiscoverOptions {
 }
 
 /**
+ * Check if an entry should be included in file discovery
+ */
+function shouldIncludeEntry(
+  entryName: string,
+  ignoreSet: Set<string>,
+): boolean {
+  if (ignoreSet.has(entryName)) return false;
+  if (entryName.startsWith('.') && entryName !== '.') return false;
+  return true;
+}
+
+/**
+ * Check if a file matches discovery criteria
+ */
+function matchesFileCriteria(
+  fullPath: string,
+  fileName: string,
+  extensions: string[] | undefined,
+  pathPattern: RegExp | undefined,
+): boolean {
+  if (extensions && !extensions.includes(extname(fileName))) return false;
+  if (pathPattern && !pathPattern.test(fullPath)) return false;
+  return true;
+}
+
+/**
  * Walk a single directory level, recursing into subdirectories.
  * Mutates `files` array in place.
  */
@@ -60,17 +86,16 @@ async function walkDir(
   }
 
   for (const entry of entries) {
-    if (ignoreSet.has(entry.name)) continue;
-    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+    if (!shouldIncludeEntry(entry.name, ignoreSet)) continue;
 
     const fullPath = join(dir, entry.name);
 
     if (entry.isDirectory()) {
       await walkDir(fullPath, depth + 1, maxDepth, ignoreSet, extensions, pathPattern, files);
     } else if (entry.isFile()) {
-      if (extensions && !extensions.includes(extname(entry.name))) continue;
-      if (pathPattern && !pathPattern.test(fullPath)) continue;
-      files.push(fullPath);
+      if (matchesFileCriteria(fullPath, entry.name, extensions, pathPattern)) {
+        files.push(fullPath);
+      }
     }
   }
 }
