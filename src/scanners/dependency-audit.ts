@@ -35,6 +35,34 @@ interface NpmAuditResult {
   };
 }
 
+/**
+ * Process vulnerabilities and categorize by severity
+ */
+function processVulnerabilities(
+  audit: NpmAuditResult,
+  violations: ScanViolation[],
+  warnings: ScanViolation[],
+): void {
+  if (!audit.vulnerabilities) return;
+
+  for (const [name, vuln] of Object.entries(audit.vulnerabilities)) {
+    const severity = vuln.severity as string;
+    const violation: ScanViolation = {
+      id: `vuln-${name}`,
+      severity: severity === 'critical' || severity === 'high' ? 'error' : 'warning',
+      message: `${severity} vulnerability in ${name}${vuln.fixAvailable ? ' (fix available)' : ''}`,
+      fix: vuln.fixAvailable ? `Run: npm audit fix` : 'Manual review required',
+      autoFixable: vuln.fixAvailable,
+    };
+
+    if (severity === 'critical' || severity === 'high') {
+      violations.push(violation);
+    } else {
+      warnings.push(violation);
+    }
+  }
+}
+
 export const dependencyAuditScanner: Scanner = {
   id: 'dependency-audit',
   name: 'Dependency Security Audit',
@@ -76,24 +104,7 @@ export const dependencyAuditScanner: Scanner = {
       const meta = audit.metadata?.vulnerabilities;
       const totalVulns = meta?.total ?? 0;
 
-      if (audit.vulnerabilities) {
-        for (const [name, vuln] of Object.entries(audit.vulnerabilities)) {
-          const severity = vuln.severity as string;
-          const violation: ScanViolation = {
-            id: `vuln-${name}`,
-            severity: severity === 'critical' || severity === 'high' ? 'error' : 'warning',
-            message: `${severity} vulnerability in ${name}${vuln.fixAvailable ? ' (fix available)' : ''}`,
-            fix: vuln.fixAvailable ? `Run: npm audit fix` : 'Manual review required',
-            autoFixable: vuln.fixAvailable,
-          };
-
-          if (severity === 'critical' || severity === 'high') {
-            violations.push(violation);
-          } else {
-            warnings.push(violation);
-          }
-        }
-      }
+      processVulnerabilities(audit, violations, warnings);
 
       const status =
         (meta?.critical ?? 0) > 0 || (meta?.high ?? 0) > 0

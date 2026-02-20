@@ -87,6 +87,47 @@ export function renderHealthDashboard(snapshot: HealthSnapshot): string {
 }
 
 /**
+ * Render violations section if verbose and violations exist
+ */
+function renderViolationsSection(
+  result: ScanResult,
+  verbose: boolean,
+): string[] {
+  if (!verbose || result.violations.length === 0) return [];
+
+  const lines: string[] = [];
+  lines.push(`     Violations (${result.violations.length}):`);
+  for (const v of result.violations.slice(0, 10)) {
+    const loc = v.file ? `${v.file}${v.line ? `:${v.line}` : ''}` : '';
+    lines.push(`       • ${v.message}${loc ? ` (${loc})` : ''}`);
+  }
+  if (result.violations.length > 10) {
+    lines.push(`       ... and ${result.violations.length - 10} more`);
+  }
+  return lines;
+}
+
+/**
+ * Render warnings section if verbose and warnings exist
+ */
+function renderWarningsSection(
+  result: ScanResult,
+  verbose: boolean,
+): string[] {
+  if (!verbose || result.warnings.length === 0) return [];
+
+  const lines: string[] = [];
+  lines.push(`     Warnings (${result.warnings.length}):`);
+  for (const w of result.warnings.slice(0, 5)) {
+    lines.push(`       ⚠ ${w.message}`);
+  }
+  if (result.warnings.length > 5) {
+    lines.push(`       ... and ${result.warnings.length - 5} more`);
+  }
+  return lines;
+}
+
+/**
  * Render scan results as a list (for `dcyfr scan` output)
  */
 export function renderScanResults(results: ScanResult[], verbose: boolean = false): string {
@@ -105,26 +146,8 @@ export function renderScanResults(results: ScanResult[], verbose: boolean = fals
       lines.push(`     ${result.summary}`);
     }
 
-    if (verbose && result.violations.length > 0) {
-      lines.push(`     Violations (${result.violations.length}):`);
-      for (const v of result.violations.slice(0, 10)) {
-        const loc = v.file ? `${v.file}${v.line ? `:${v.line}` : ''}` : '';
-        lines.push(`       • ${v.message}${loc ? ` (${loc})` : ''}`);
-      }
-      if (result.violations.length > 10) {
-        lines.push(`       ... and ${result.violations.length - 10} more`);
-      }
-    }
-
-    if (verbose && result.warnings.length > 0) {
-      lines.push(`     Warnings (${result.warnings.length}):`);
-      for (const w of result.warnings.slice(0, 5)) {
-        lines.push(`       ⚠ ${w.message}`);
-      }
-      if (result.warnings.length > 5) {
-        lines.push(`       ... and ${result.warnings.length - 5} more`);
-      }
-    }
+    lines.push(...renderViolationsSection(result, verbose));
+    lines.push(...renderWarningsSection(result, verbose));
 
     lines.push('');
   }
