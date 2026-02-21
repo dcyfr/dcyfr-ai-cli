@@ -257,9 +257,8 @@ function stripAnsi(str: string): string {
 /**
  * Count ANSI code characters (for padding calculations)
  */
-function countAnsiCodes(str: string): number {
+export function countAnsiCodes(str: string): number {
   return str.length - stripAnsi(str).length;
 }
 
-// Exported for potential external use
-void countAnsiCodes;
+

@@ -57,7 +57,7 @@ async function checkMissingBarrel(
     return false;
   }
 
-  return false;
+  return true;
 }
 
 /**
