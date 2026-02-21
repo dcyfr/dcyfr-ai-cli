@@ -36,6 +36,14 @@ interface FileMetrics {
   magicNumbers: number;
 }
 
+const MAGIC_SKIP = new Set(['10', '16', '100', '1000', '1024', '60', '24', '365']);
+
+function countMagicNumbersInLine(trimmed: string): number {
+  const magicMatch = trimmed.match(/(?<![.\w])(?<!['"`])(\d{2,})(?![.\w])/g);
+  if (!magicMatch) return 0;
+  return magicMatch.filter((m) => !MAGIC_SKIP.has(m) && !/^\d{4}$/.test(m)).length;
+}
+
 function analyzeFileMetrics(content: string): FileMetrics {
   const lines = content.split('\n');
   let functionCount = 0;
@@ -71,15 +79,7 @@ function analyzeFileMetrics(content: string): FileMetrics {
     }
 
     // Detect magic numbers (excluding 0, 1, -1, common array indices, and common sizes)
-    const magicMatch = trimmed.match(/(?<![.\w])(?<!['"`])(\d{2,})(?![.\w])/g);
-    if (magicMatch) {
-      const skip = new Set(['10', '16', '100', '1000', '1024', '60', '24', '365']);
-      for (const m of magicMatch) {
-        if (!skip.has(m) && !/^\d{4}$/.test(m)) { // Skip years
-          magicNumbers++;
-        }
-      }
-    }
+    magicNumbers += countMagicNumbersInLine(trimmed);
   }
 
   return {

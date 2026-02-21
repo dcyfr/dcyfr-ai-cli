@@ -108,6 +108,25 @@ function checkErrorHandling(
   }
 }
 
+function processHandlers(
+  handlers: string[],
+  content: string,
+  relPath: string,
+  violations: ScanViolation[],
+): number {
+  let compliantCount = 0;
+  for (const method of handlers) {
+    const lineNum = content.slice(0, content.indexOf(`function ${method}`)).split('\n').length;
+    const violationsBefore = violations.length;
+    checkMethodValidation(method, content, relPath, lineNum, violations);
+    checkErrorHandling(method, content, relPath, lineNum, violations);
+    if (violations.length === violationsBefore) {
+      compliantCount++;
+    }
+  }
+  return compliantCount;
+}
+
 async function staticApiScan(
   context: ScanContext,
   files: string[],
@@ -139,24 +158,7 @@ async function staticApiScan(
     if (handlers.length === 0) continue;
 
     routesChecked += handlers.length;
-    let fileCompliant = true;
-
-    for (const method of handlers) {
-      const lineNum = content.slice(0, content.indexOf(`function ${method}`)).split('\n').length;
-
-      // Check validation and async pattern compliance
-      const violationsBefore = violations.length;
-      checkMethodValidation(method, content, relPath, lineNum, violations);
-      checkErrorHandling(method, content, relPath, lineNum, violations);
-
-      if (violations.length > violationsBefore) {
-        fileCompliant = false;
-      }
-    }
-
-    if (fileCompliant) {
-      compliant += handlers.length;
-    }
+    compliant += processHandlers(handlers, content, relPath, violations);
   }
 
   const compliance = routesChecked > 0 ? compliant / routesChecked : 1;
