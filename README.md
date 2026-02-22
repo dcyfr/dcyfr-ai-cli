@@ -9,6 +9,33 @@
 
 This is a standalone CLI tool extracted from the dcyfr-ai-nodejs starter template, designed to be lightweight, portable, and easy to use across all operating systems.
 
+---
+
+## ⚡ 30-Second Quick Start
+
+```bash
+# Install globally
+npm install -g @dcyfr/ai-cli
+
+# Run immediately
+dcyfr --help
+dcyfr init my-project
+# ✅ DCYFR CLI ready to use
+```
+
+---
+
+## 🧭 Related Packages
+
+| Package | Purpose | Type |
+|---------|---------|------|
+| [@dcyfr/ai](../dcyfr-ai) | Core AI framework | npm package |
+| [@dcyfr/ai-nodejs](../dcyfr-ai-nodejs) | Node.js starter | Template |
+| [@dcyfr/ai-api](../dcyfr-ai-api) | REST API template | Template |
+| [dcyfr-labs](../dcyfr-labs) | Production Next.js app | Application |
+
+---
+
 ## ✨ Features
 
 - 🖥️ **Cross-Platform** - Works seamlessly on Windows, macOS, and Linux
