@@ -427,3 +427,8 @@ program.addCommand(createSandboxCommand());
 
 **Last Updated:** February 5, 2026  
 **Status:** Active - Extracted from dcyfr-ai-nodejs v1.0.0
+
+## Quality Gates
+- TypeScript: 0 errors (`npm run typecheck`)
+- Tests: ≥99% pass rate (`npm run test`)
+- Lint: 0 errors (`npm run lint`)
