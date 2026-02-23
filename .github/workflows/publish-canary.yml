@@ -31,6 +31,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v1
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          NPM_TOKEN: op://CI-CD/dcyfr-ai-cli-npm-token/credential
+
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,12 +54,12 @@ jobs:
           echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
           echo "access=public" >> ~/.npmrc
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: $NPM_TOKEN
 
       - name: Install Dependencies
         run: npm install --ignore-scripts
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: $NPM_TOKEN
 
       - name: Build Package
         run: npm run build
@@ -82,7 +90,7 @@ jobs:
           npm publish --tag ${{ inputs.tag }} --access public
           echo "✅ Published @dcyfr/ai-cli@${{ steps.version.outputs.canary }} with tag '${{ inputs.tag }}'"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: $NPM_TOKEN
 
       - name: Create Summary
         run: |
