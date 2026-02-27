@@ -55,9 +55,16 @@
   "author": "DCYFR",
   "license": "MIT",
   "dependencies": {
-    "@dcyfr/ai": "^1.0.4",
     "chokidar": "^4.0.3",
     "commander": "^14.0.2"
+  },
+  "peerDependencies": {
+    "@dcyfr/ai": "^2.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@dcyfr/ai": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",
