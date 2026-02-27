@@ -3,6 +3,7 @@ dist/
 *.js
 *.map
 *.d.ts
+!bin/**/*.js
 .DS_Store
 .env.local
 .env.*.local
