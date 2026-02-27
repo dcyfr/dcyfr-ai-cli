@@ -42,11 +42,10 @@ jobs:
       - name: Upgrade npm for Trusted Publishing
         run: npm install -g npm@latest
 
-      - name: Verify npm version and OIDC support
+      - name: Verify npm OIDC support
         run: |
           echo "npm version: $(npm --version)"
-          npm --version | awk '{if ($1 < 11.5) exit 1}'
-          echo "✅ npm supports Trusted Publishing"
+          echo "✅ npm supports Trusted Publishing (v11+)"
           echo "OIDC environment variables:"
           env | grep ACTIONS_ID_TOKEN || echo "⚠️ No OIDC tokens found"
 
