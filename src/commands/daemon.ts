@@ -13,6 +13,7 @@
 import { Command } from 'commander';
 import { spawn } from 'child_process';
 import { findWorkspaceRoot } from '@/lib/workspace.js';
+import { createLogger } from '@/lib/logger.js';
 import {
   DaemonProcess,
   isDaemonRunning,
@@ -44,6 +45,8 @@ function formatUptime(ms: number): string {
 /**
  * Create the `dcyfr daemon` command group
  */
+const logger = createLogger('daemon');
+
 export function createDaemonCommand(): Command {
   const daemon = new Command('daemon').description('Manage the DCYFR workspace guardian daemon');
 
@@ -102,6 +105,7 @@ export function createDaemonCommand(): Command {
         // Keep process alive — daemon runs until signal received
         console.log('\n  Press Ctrl+C to stop the daemon.\n');
       } catch (error) {
+        logger.error('Failed to start daemon', { error: error instanceof Error ? error.message : String(error) });
         console.error(`\n  ❌ Failed to start daemon: ${error instanceof Error ? error.message : String(error)}\n`);
         process.exit(1);
       }
