@@ -56,6 +56,27 @@ export interface AIProviderStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Preferred provider execution order
+// ---------------------------------------------------------------------------
+
+/**
+ * PREFERRED PROVIDER EXECUTION ORDER
+ * 
+ * Defines the fallback chain for AI provider selection:
+ * 1. Msty Vibe CLI Proxy (maps openai standard to Claude, GPT/Codex, Gemini on port 8317)
+ * 2. Anthropic (Claude only)
+ * 3. OpenAI (GPT/Codex Only)
+ * 4. Groq (fast inference)
+ * 5. Ollama (locally hosted models via Msty Local AI on port 11434)
+ */
+export const PREFERRED_PROVIDER_ORDER: AIProviderType[] = [
+  'anthropic',  // Priority #2 (after Msty Vibe which is handled via OPENAI_API_BASE)
+  'openai',     // Priority #3
+  'groq',       // Priority #4
+  'ollama',     // Priority #5
+];
+
+// ---------------------------------------------------------------------------
 // Default configs per provider
 // ---------------------------------------------------------------------------
 
