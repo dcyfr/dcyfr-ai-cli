@@ -1,5 +1,5 @@
 /**
- * Status command - Show framework status
+ * Status command - Show harness status
  */
 
 import { Command } from 'commander';
@@ -10,12 +10,12 @@ const logger = createLogger('status');
 
 export function createStatusCommand(): Command {
   return new Command('status')
-    .description('Show DCYFR AI framework status')
+    .description('Show DCYFR AI harness status')
     .action(async () => {
       try {
         const config = await loadConfig();
 
-        console.log('\n🚀 DCYFR AI Framework Status\n');
+        console.log('\n🚀 DCYFR AI Harness Status\n');
         console.log(`Validation: ${config.validation.enabled ? '✅ Enabled' : '❌ Disabled'}`);
         console.log(`Telemetry:  ${config.telemetry.enabled ? '✅ Enabled' : '❌ Disabled'}`);
         console.log(`\nNode Version: ${process.version}`);

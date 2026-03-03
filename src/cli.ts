@@ -2,7 +2,7 @@
 /**
  * DCYFR AI CLI
  *
- * Command-line interface for the DCYFR AI framework
+ * Command-line interface for the DCYFR AI harness
  * Portable across Windows, macOS, and Linux
  */
 
@@ -25,7 +25,7 @@ const program = new Command();
 
 program
   .name('dcyfr')
-  .description('DCYFR AI Framework CLI - Cross-platform command-line interface')
+  .description('DCYFR AI Harness CLI - Cross-platform command-line interface')
   .version('1.0.0')
   .exitOverride(); // Prevent Commander from calling process.exit
 
