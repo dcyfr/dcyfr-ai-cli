@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 [![npm](https://img.shields.io/npm/v/@dcyfr/ai-cli?style=flat-square&logo=npm)](https://www.npmjs.com/package/@dcyfr/ai-cli)
 
-**A portable, cross-platform command-line interface for DCYFR AI framework - supported on Windows, macOS, and Linux.**
+**A portable, cross-platform command-line interface for DCYFR AI harness - supported on Windows, macOS, and Linux.**
 
 This is a standalone CLI tool extracted from the dcyfr-ai-nodejs starter template, designed to be lightweight, portable, and easy to use across all operating systems.
 
@@ -32,7 +32,7 @@ dcyfr init my-project
 
 | Package | Purpose | Type |
 |---------|---------|------|
-| [@dcyfr/ai](../dcyfr-ai) | Core AI framework | npm package |
+| [@dcyfr/ai](../dcyfr-ai) | Core AI harness | npm package |
 | [@dcyfr/ai-nodejs](../dcyfr-ai-nodejs) | Node.js starter | Template |
 | [@dcyfr/ai-api](../dcyfr-ai-api) | REST API template | Template |
 | [dcyfr-labs](../dcyfr-labs) | Production Next.js app | Application |
@@ -43,7 +43,7 @@ dcyfr init my-project
 
 - 🖥️ **Cross-Platform** - Works seamlessly on Windows, macOS, and Linux
 - 🚀 **Portable** - Single binary/package installation
-- 🤖 **DCYFR AI Integration** - Full framework support with validation and telemetry
+- 🤖 **DCYFR AI Integration** - Full harness support with validation and telemetry
 - 📘 **TypeScript Strict Mode** - Full type safety with strict compiler options
 - ⚡ **Modern Node.js** - ESM modules, Node.js 20+
 - 🔧 **Developer Experience** - Hot reload, source maps, path aliases
