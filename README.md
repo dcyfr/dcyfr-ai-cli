@@ -139,7 +139,7 @@ dcyfr --version   # Show version
 ```bash
 $ dcyfr status
 
-🚀 DCYFR AI Framework Status
+🚀 DCYFR AI Harness Status
 
 Validation: ✅ Enabled
 Telemetry:  ✅ Enabled
@@ -414,7 +414,7 @@ MIT - See [LICENSE](./LICENSE) for details.
 
 ## 🔗 Related
 
-- [DCYFR AI Framework](https://github.com/dcyfr/dcyfr-ai)
+- [DCYFR AI Harness](https://github.com/dcyfr/dcyfr-ai)
 - [Node.js Starter Template](https://github.com/dcyfr/dcyfr-ai-nodejs)
 - [DCYFR Labs](https://github.com/dcyfr/dcyfr-labs)
 
