@@ -1,7 +1,7 @@
 {
   "name": "@dcyfr/ai-cli",
   "version": "1.0.3",
-  "description": "DCYFR AI Command-Line Interface - Portable CLI tool for DCYFR AI framework",
+  "description": "DCYFR AI Command-Line Interface - Portable CLI tool for DCYFR AI harness",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

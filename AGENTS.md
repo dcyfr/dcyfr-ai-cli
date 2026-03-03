@@ -11,10 +11,10 @@ Status: Extracted from dcyfr-ai-nodejs
 
 ## 🎯 Project Overview
 
-This is a **standalone, portable CLI package** for the DCYFR AI framework:
+This is a **standalone, portable CLI package** for the DCYFR AI harness:
 
 - **Extracted from**: dcyfr-ai-nodejs starter template
-- **Purpose**: Provide cross-platform CLI interface for DCYFR AI framework
+- **Purpose**: Provide cross-platform CLI interface for DCYFR AI harness
 - **Target Users**: Developers integrating DCYFR AI into their workflows
 - **Portability**: Windows, macOS, Linux support
 
