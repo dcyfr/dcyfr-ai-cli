@@ -55,6 +55,21 @@ export interface AIProviderStatus {
   reason?: string | undefined;
 }
 
+function isLikelyLocalEndpoint(url?: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '0.0.0.0' ||
+      parsed.hostname.startsWith('100.') // Tailscale subnet (common remote-dev path)
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Preferred provider execution order
 // ---------------------------------------------------------------------------
@@ -130,12 +145,24 @@ export async function resolveProvider(
   // Merge: overrides > file config > env detection
   const provider = overrides?.provider ?? fileConfig.provider ?? detectProvider();
   const defaults = PROVIDER_DEFAULTS[provider];
+  const openAiBaseFromEnv = process.env.OPENAI_BASE_URL ?? process.env.OPENAI_API_BASE;
+
+  const resolvedBaseUrl =
+    overrides?.baseUrl
+    ?? fileConfig.baseUrl
+    ?? (provider === 'openai' && openAiBaseFromEnv ? openAiBaseFromEnv : defaults.baseUrl);
+
+  const resolvedApiKey =
+    overrides?.apiKey
+    ?? fileConfig.apiKey
+    ?? process.env[defaults.envKey]
+    ?? (provider === 'openai' && isLikelyLocalEndpoint(resolvedBaseUrl) ? 'local-inference-proxy' : undefined);
 
   return {
     provider,
     model: overrides?.model ?? fileConfig.model ?? defaults.model,
-    apiKey: overrides?.apiKey ?? fileConfig.apiKey ?? process.env[defaults.envKey],
-    baseUrl: overrides?.baseUrl ?? fileConfig.baseUrl ?? defaults.baseUrl,
+    apiKey: resolvedApiKey,
+    baseUrl: resolvedBaseUrl,
     maxTokens: overrides?.maxTokens ?? fileConfig.maxTokens ?? 4096,
     temperature: overrides?.temperature ?? fileConfig.temperature ?? 0.3,
   };
@@ -145,6 +172,7 @@ export async function resolveProvider(
  * Auto-detect the best available provider from environment
  */
 function detectProvider(): AIProviderType {
+  if (process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE) return 'openai';
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
   if (process.env.OPENAI_API_KEY) return 'openai';
   if (process.env.GROQ_API_KEY) return 'groq';
@@ -174,6 +202,21 @@ export async function checkProviderStatus(config: AIProviderConfig): Promise<AIP
       return { ...base, reason: `Ollama returned ${resp.status}` };
     } catch {
       return { ...base, reason: 'Ollama not running (start with: ollama serve)' };
+    }
+  }
+
+  // OpenAI-compatible local endpoints can run keyless (e.g., inference proxy)
+  if (config.provider === 'openai' && isLikelyLocalEndpoint(config.baseUrl)) {
+    const endpoint = config.baseUrl ?? 'http://localhost:3130/v1';
+    const origin = endpoint.replace(/\/v1\/?$/, '');
+    try {
+      const resp = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(2000) });
+      if (resp.ok) {
+        return { ...base, available: true };
+      }
+      return { ...base, reason: `Local OpenAI-compatible endpoint returned ${resp.status}` };
+    } catch {
+      return { ...base, reason: 'Local OpenAI-compatible endpoint not reachable' };
     }
   }
 
@@ -275,12 +318,16 @@ async function openaiCompletion(
   messages: AIMessage[],
   start: number,
 ): Promise<AIResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  }
+
   const resp = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model: config.model,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
