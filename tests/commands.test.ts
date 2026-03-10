@@ -4,8 +4,40 @@
  * Test individual CLI commands and verify exit codes
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { runCLI } from '../src/cli.js';
+
+vi.mock('../src/scanners/registry.js', () => ({
+  createDefaultRegistry: async () => ({
+    runAll: async () => [
+      {
+        scanner: 'mock-scanner',
+        status: 'pass',
+        findings: [],
+        summary: 'Mock validation passed',
+      },
+    ],
+  }),
+}));
+
+vi.mock('../src/lib/workspace.js', () => ({
+  findWorkspaceRoot: async () => '/tmp/dcyfr-test-workspace',
+}));
+
+vi.mock('../src/lib/files.js', () => ({
+  listProjects: async () => ['dcyfr-ai-cli'],
+}));
+
+vi.mock('../src/health/index.js', () => ({
+  buildHealthSnapshot: () => ({
+    generatedAt: new Date().toISOString(),
+    workspace: { packages: 1 },
+    summary: { totalScanners: 1, passed: 1, failed: 0, warnings: 0 },
+    scanners: [],
+  }),
+  saveHealthSnapshot: async () => undefined,
+  renderScanResults: () => 'Mock validation results',
+}));
 
 describe('CLI Commands', () => {
   describe('status command', () => {
