@@ -58,7 +58,7 @@ export interface AIProviderStatus {
 function isLikelyLocalEndpoint(url?: string | undefined): boolean {
   if (!url) return false;
   try {
-    const parsed = new URL(url);
+    const parsed = new globalThis.URL(url);
     return (
       parsed.hostname === 'localhost' ||
       parsed.hostname === '127.0.0.1' ||
