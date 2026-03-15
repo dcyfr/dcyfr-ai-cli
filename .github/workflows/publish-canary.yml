@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Load secrets from 1Password
         uses: 1password/load-secrets-action@v1
         with:
