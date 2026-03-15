@@ -187,7 +187,7 @@ export async function loadHealthHistory(
   days?: number,
 ): Promise<HealthSnapshot[]> {
   const historyPath = join(workspaceRoot, DCYFR_DIR, HISTORY_FILE);
-  let history: HealthSnapshot[] = [];
+  let history: HealthSnapshot[];
 
   try {
     const content = await readFile(historyPath, 'utf-8');
