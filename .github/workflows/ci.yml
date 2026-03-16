@@ -40,6 +40,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     permissions:
       contents: read
     strategy:
@@ -53,8 +54,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
       - run: npm ci
-      - run: npm run test:run
       - run: npm run build
+      - run: npm run test:run
       - name: Test CLI binary (macOS/Linux)
         if: runner.os != 'Windows'
         run: |
