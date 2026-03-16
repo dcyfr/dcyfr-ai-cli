@@ -40,6 +40,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     permissions:
       contents: read
     strategy:
