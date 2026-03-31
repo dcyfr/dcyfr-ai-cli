@@ -25,6 +25,7 @@
     "incremental": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "outDir": "./dist",
+    "rootDir": "./src",
     "removeComments": false,
     "importHelpers": false,
     "downlevelIteration": true,
