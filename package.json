@@ -1,6 +1,6 @@
 {
   "name": "@dcyfr/ai-cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "DCYFR AI Command-Line Interface - Portable CLI tool for DCYFR AI harness",
   "type": "module",
   "main": "./dist/index.js",
@@ -98,11 +98,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dcyfr/dcyfr-ai-cli"
+    "url": "https://github.com/dcyfr-labs/dcyfr-ai-cli"
   },
-  "homepage": "https://github.com/dcyfr/dcyfr-ai-cli#readme",
+  "homepage": "https://github.com/dcyfr-labs/dcyfr-ai-cli#readme",
   "bugs": {
-    "url": "https://github.com/dcyfr/dcyfr-ai-cli/issues"
+    "url": "https://github.com/dcyfr-labs/dcyfr-ai-cli/issues"
   },
   "publishConfig": {
     "access": "public"
