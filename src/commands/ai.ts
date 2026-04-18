@@ -48,12 +48,17 @@ export function createAICommand(): Command {
         if (config.provider === 'ollama') {
           console.log('     • Start Ollama:  ollama serve');
           console.log('     • Pull a model:  ollama pull llama3.2');
+        } else if (config.provider === 'local') {
+          console.log('     • Start MLX server:  mlx_lm.server --port 11973');
+          console.log('     • Set LOCAL_LLM_BASE_URL=http://127.0.0.1:11973/v1');
+        } else if (config.provider === 'workbench') {
+          console.log('     • Set WORKBENCH_BASE_URL=http://<tailscale-ip>:11434');
+        } else if (config.provider === 'github-models') {
+          console.log('     • Set GITHUB_TOKEN (requires GitHub Copilot/Pro)');
         } else {
-          const envKey = config.provider === 'anthropic' ? 'ANTHROPIC_API_KEY'
-            : config.provider === 'openai' ? 'OPENAI_API_KEY'
-              : 'GROQ_API_KEY';
-          console.log(`     • Set ${envKey} environment variable`);
-          console.log('     • Or use Ollama for local models (free, no API key)');
+          // anthropic
+          console.log('     • Set ANTHROPIC_API_KEY environment variable');
+          console.log('     • Or use local models instead (no API key needed)');
         }
         console.log('');
       }

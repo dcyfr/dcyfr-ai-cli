@@ -1,8 +1,11 @@
 /**
  * AI Provider — lightweight LLM abstraction
  *
- * Supports Anthropic Claude, OpenAI, Groq, and Ollama.
- * Falls back gracefully when no API key is available.
+ * 4-tier provider hierarchy:
+ *   Tier 0 (local):        local (MLX :11973, LLaMA.cpp :11454), ollama (:11434)
+ *   Tier 1 (workbench):    workbench (RTX 3060 via Tailscale)
+ *   Tier 2 (github):       github-models (Azure-hosted, requires Copilot/Pro)
+ *   Tier 3 (cloud):        anthropic (high perf, high cost)
  *
  * @module @dcyfr/ai-cli/ai/provider
  */
@@ -15,7 +18,7 @@ import { pathExists } from '@/lib/files.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type AIProviderType = 'anthropic' | 'openai' | 'groq' | 'ollama';
+export type AIProviderType = 'local' | 'ollama' | 'workbench' | 'github-models' | 'anthropic';
 
 export interface AIProviderConfig {
   /** Provider type */
@@ -77,18 +80,19 @@ function isLikelyLocalEndpoint(url?: string | undefined): boolean {
 /**
  * PREFERRED PROVIDER EXECUTION ORDER
  *
- * Defines the fallback chain for AI provider selection:
- * 1. Msty Vibe CLI Proxy (maps openai standard to Claude, GPT/Codex, Gemini on port 8317)
- * 2. Anthropic (Claude only)
- * 3. OpenAI (GPT/Codex Only)
- * 4. Groq (fast inference)
- * 5. Ollama (locally hosted models via Msty Local AI on port 11434)
+ * Local-first fallback chain — cheapest/most-private tier wins:
+ * 1. local    — MLX (:11973) or LLaMA.cpp (:11454), no cost, fully private
+ * 2. ollama   — local Ollama (:11434), no cost, fully private
+ * 3. workbench — RTX 3060 GPU node via Tailscale, no cost, private
+ * 4. github-models — cloud, included with Copilot/Pro, rate-limited
+ * 5. anthropic — cloud, high perf, billed per token
  */
 export const PREFERRED_PROVIDER_ORDER: AIProviderType[] = [
-  'anthropic',  // Priority #2 (after Msty Vibe which is handled via OPENAI_API_BASE)
-  'openai',     // Priority #3
-  'groq',       // Priority #4
-  'ollama',     // Priority #5
+  'local',
+  'ollama',
+  'workbench',
+  'github-models',
+  'anthropic',
 ];
 
 // ---------------------------------------------------------------------------
@@ -96,25 +100,34 @@ export const PREFERRED_PROVIDER_ORDER: AIProviderType[] = [
 // ---------------------------------------------------------------------------
 
 const PROVIDER_DEFAULTS: Record<AIProviderType, { baseUrl: string; model: string; envKey: string }> = {
-  anthropic: {
-    baseUrl: 'https://api.anthropic.com/v1',
-    model: 'claude-3-5-haiku-latest',
-    envKey: 'ANTHROPIC_API_KEY',
-  },
-  openai: {
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-5-nano',
-    envKey: 'OPENAI_API_KEY',
-  },
-  groq: {
-    baseUrl: 'https://api.groq.com/openai/v1',
-    model: 'llama-3.3-70b-versatile',
-    envKey: 'GROQ_API_KEY',
+  // Tier 0 — local private inference
+  local: {
+    baseUrl: 'http://127.0.0.1:11973/v1',     // MLX server (fallback: :11454 LLaMA.cpp)
+    model: 'mlx-community/Phi-3.5-mini-instruct-4bit',
+    envKey: 'LOCAL_LLM_API_KEY',               // optional; defaults to 'local' if unset
   },
   ollama: {
     baseUrl: 'http://localhost:11434/api',
-    model: 'llama3.2',
-    envKey: '', // no key needed
+    model: 'qwen2.5:7b',
+    envKey: '',                                // no key needed
+  },
+  // Tier 1 — workbench GPU node via Tailscale
+  workbench: {
+    baseUrl: 'http://localhost:11434',          // overridden by WORKBENCH_BASE_URL at runtime
+    model: 'qwen2.5-coder:14b',
+    envKey: 'WORKBENCH_API_KEY',               // optional
+  },
+  // Tier 2 — GitHub Models (requires Copilot/Pro GITHUB_TOKEN)
+  'github-models': {
+    baseUrl: 'https://models.inference.ai.azure.com',
+    model: 'gpt-4o-mini',
+    envKey: 'GITHUB_TOKEN',
+  },
+  // Tier 3 — Anthropic (billed, high perf)
+  anthropic: {
+    baseUrl: 'https://api.anthropic.com/v1',
+    model: 'claude-haiku-4-5-20251001',
+    envKey: 'ANTHROPIC_API_KEY',
   },
 };
 
@@ -145,25 +158,28 @@ export async function resolveProvider(
   // Merge: overrides > file config > env detection
   const provider = overrides?.provider ?? fileConfig.provider ?? detectProvider();
   const defaults = PROVIDER_DEFAULTS[provider];
-  const openAiBaseFromEnv = process.env.OPENAI_BASE_URL ?? process.env.OPENAI_API_BASE;
-  const aiGatewayApiKey = process.env.AI_GATEWAY_API_KEY;
-  const inferredOpenAiBase = openAiBaseFromEnv ?? (aiGatewayApiKey ? 'https://ai-gateway.vercel.sh/v1' : undefined);
+
+  // Dynamic base URLs (workbench and local are env-driven)
+  const envBaseUrl =
+    provider === 'workbench' ? process.env.WORKBENCH_BASE_URL :
+    provider === 'local'     ? process.env.LOCAL_LLM_BASE_URL :
+    undefined;
 
   const resolvedBaseUrl =
     overrides?.baseUrl
     ?? fileConfig.baseUrl
-    ?? (provider === 'openai' && inferredOpenAiBase ? inferredOpenAiBase : defaults.baseUrl);
+    ?? envBaseUrl
+    ?? defaults.baseUrl;
 
   const resolvedApiKey =
     overrides?.apiKey
     ?? fileConfig.apiKey
-    ?? process.env[defaults.envKey]
-    ?? (provider === 'openai' ? aiGatewayApiKey : undefined)
-    ?? (provider === 'openai' && isLikelyLocalEndpoint(resolvedBaseUrl) ? 'local-inference-proxy' : undefined);
+    ?? (defaults.envKey ? process.env[defaults.envKey] : undefined)
+    ?? (provider === 'local' ? 'local' : undefined);
 
   return {
     provider,
-    model: overrides?.model ?? fileConfig.model ?? defaults.model,
+    model: overrides?.model ?? fileConfig.model ?? (provider === 'local' ? (process.env.LOCAL_LLM_MODEL ?? defaults.model) : defaults.model),
     apiKey: resolvedApiKey,
     baseUrl: resolvedBaseUrl,
     maxTokens: overrides?.maxTokens ?? fileConfig.maxTokens ?? 4096,
@@ -172,15 +188,18 @@ export async function resolveProvider(
 }
 
 /**
- * Auto-detect the best available provider from environment
+ * Auto-detect the best available provider from environment (local-first)
  */
 function detectProvider(): AIProviderType {
-  if (process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE) return 'openai';
-  if (process.env.AI_GATEWAY_API_KEY) return 'openai';
+  // Tier 0 — local private inference
+  if (process.env.LOCAL_LLM_BASE_URL) return 'local';
+  // Tier 1 — workbench GPU node
+  if (process.env.WORKBENCH_BASE_URL) return 'workbench';
+  // Tier 2 — GitHub Models
+  if (process.env.GITHUB_TOKEN) return 'github-models';
+  // Tier 3 — Anthropic
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
-  if (process.env.OPENAI_API_KEY) return 'openai';
-  if (process.env.GROQ_API_KEY) return 'groq';
-  // Default to ollama (local, no key needed)
+  // Default — Ollama (local, no key needed)
   return 'ollama';
 }
 
@@ -209,18 +228,18 @@ export async function checkProviderStatus(config: AIProviderConfig): Promise<AIP
     }
   }
 
-  // OpenAI-compatible local endpoints can run keyless (e.g., inference proxy)
-  if (config.provider === 'openai' && isLikelyLocalEndpoint(config.baseUrl)) {
-    const endpoint = config.baseUrl ?? 'http://localhost:3130/v1';
+  // Local OpenAI-compat endpoints (MLX, LLaMA.cpp) and workbench (Tailscale) — check health
+  if (config.provider === 'local' || (config.provider === 'workbench' && isLikelyLocalEndpoint(config.baseUrl))) {
+    const endpoint = config.baseUrl ?? 'http://127.0.0.1:11973/v1';
     const origin = endpoint.replace(/\/v1\/?$/, '');
     try {
       const resp = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(2000) });
       if (resp.ok) {
         return { ...base, available: true };
       }
-      return { ...base, reason: `Local OpenAI-compatible endpoint returned ${resp.status}` };
+      return { ...base, reason: `Local inference endpoint returned ${resp.status}` };
     } catch {
-      return { ...base, reason: 'Local OpenAI-compatible endpoint not reachable' };
+      return { ...base, reason: 'Local inference endpoint not reachable (MLX/LLaMA.cpp not running?)' };
     }
   }
 
@@ -249,8 +268,9 @@ export async function chatCompletion(
   switch (config.provider) {
     case 'anthropic':
       return anthropicCompletion(config, messages, start);
-    case 'openai':
-    case 'groq':
+    case 'local':
+    case 'workbench':
+    case 'github-models':
       return openaiCompletion(config, messages, start);
     case 'ollama':
       return ollamaCompletion(config, messages, start);
@@ -315,7 +335,7 @@ async function anthropicCompletion(
 }
 
 /**
- * OpenAI-compatible API (works for OpenAI + Groq)
+ * OpenAI-compatible API (local/MLX, workbench/Ollama, github-models)
  */
 async function openaiCompletion(
   config: AIProviderConfig,
