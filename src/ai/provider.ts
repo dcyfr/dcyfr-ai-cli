@@ -18,7 +18,7 @@ import { pathExists } from '@/lib/files.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type AIProviderType = 'local' | 'ollama' | 'workbench' | 'github-models' | 'anthropic';
+export type AIProviderType = 'local' | 'openai' | 'ollama' | 'workbench' | 'github-models' | 'anthropic';
 
 export interface AIProviderConfig {
   /** Provider type */
@@ -82,13 +82,15 @@ function isLikelyLocalEndpoint(url?: string | undefined): boolean {
  *
  * Local-first fallback chain — cheapest/most-private tier wins:
  * 1. local    — MLX (:11973) or LLaMA.cpp (:11454), no cost, fully private
- * 2. ollama   — local Ollama (:11434), no cost, fully private
- * 3. workbench — RTX 3060 GPU node via Tailscale, no cost, private
- * 4. github-models — cloud, included with Copilot/Pro, rate-limited
- * 5. anthropic — cloud, high perf, billed per token
+ * 2. openai   — OpenAI-compatible endpoint (vLLM, LM Studio, local proxy, or cloud)
+ * 3. ollama   — local Ollama (:11434), no cost, fully private
+ * 4. workbench — RTX 3060 GPU node via Tailscale, no cost, private
+ * 5. github-models — cloud, included with Copilot/Pro, rate-limited
+ * 6. anthropic — cloud, high perf, billed per token
  */
 export const PREFERRED_PROVIDER_ORDER: AIProviderType[] = [
   'local',
+  'openai',
   'ollama',
   'workbench',
   'github-models',
@@ -105,6 +107,14 @@ const PROVIDER_DEFAULTS: Record<AIProviderType, { baseUrl: string; model: string
     baseUrl: 'http://127.0.0.1:11973/v1',     // MLX server (fallback: :11454 LLaMA.cpp)
     model: 'mlx-community/Phi-3.5-mini-instruct-4bit',
     envKey: 'LOCAL_LLM_API_KEY',               // optional; defaults to 'local' if unset
+  },
+  // OpenAI-compatible endpoint — vLLM / LM Studio / local proxy / api.openai.com.
+  // Base URL is OPENAI_BASE_URL (preferred) or defaults to cloud. Local endpoints
+  // (detected via isLikelyLocalEndpoint) get a sentinel key so auth-less proxies work.
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'auto',
+    envKey: 'OPENAI_API_KEY',
   },
   ollama: {
     baseUrl: 'http://localhost:11434/api',
@@ -159,10 +169,11 @@ export async function resolveProvider(
   const provider = overrides?.provider ?? fileConfig.provider ?? detectProvider();
   const defaults = PROVIDER_DEFAULTS[provider];
 
-  // Dynamic base URLs (workbench and local are env-driven)
+  // Dynamic base URLs (workbench, local, and openai are env-driven)
   const envBaseUrl =
     provider === 'workbench' ? process.env.WORKBENCH_BASE_URL :
     provider === 'local'     ? process.env.LOCAL_LLM_BASE_URL :
+    provider === 'openai'    ? process.env.OPENAI_BASE_URL :
     undefined;
 
   const resolvedBaseUrl =
@@ -175,7 +186,8 @@ export async function resolveProvider(
     overrides?.apiKey
     ?? fileConfig.apiKey
     ?? (defaults.envKey ? process.env[defaults.envKey] : undefined)
-    ?? (provider === 'local' ? 'local' : undefined);
+    ?? (provider === 'local' ? 'local' : undefined)
+    ?? (provider === 'openai' && isLikelyLocalEndpoint(resolvedBaseUrl) ? 'local-inference-proxy' : undefined);
 
   return {
     provider,
@@ -193,6 +205,8 @@ export async function resolveProvider(
 function detectProvider(): AIProviderType {
   // Tier 0 — local private inference
   if (process.env.LOCAL_LLM_BASE_URL) return 'local';
+  // Tier 0 — generic OpenAI-compatible endpoint (vLLM, LM Studio, local proxy, or cloud)
+  if (process.env.OPENAI_BASE_URL) return 'openai';
   // Tier 1 — workbench GPU node
   if (process.env.WORKBENCH_BASE_URL) return 'workbench';
   // Tier 2 — GitHub Models
@@ -228,8 +242,12 @@ export async function checkProviderStatus(config: AIProviderConfig): Promise<AIP
     }
   }
 
-  // Local OpenAI-compat endpoints (MLX, LLaMA.cpp) and workbench (Tailscale) — check health
-  if (config.provider === 'local' || (config.provider === 'workbench' && isLikelyLocalEndpoint(config.baseUrl))) {
+  // Local OpenAI-compat endpoints (MLX, LLaMA.cpp), workbench (Tailscale), and
+  // user-configured OpenAI-compat proxies (vLLM, LM Studio) — check /health
+  if (
+    config.provider === 'local' ||
+    ((config.provider === 'workbench' || config.provider === 'openai') && isLikelyLocalEndpoint(config.baseUrl))
+  ) {
     const endpoint = config.baseUrl ?? 'http://127.0.0.1:11973/v1';
     const origin = endpoint.replace(/\/v1\/?$/, '');
     try {
@@ -271,6 +289,7 @@ export async function chatCompletion(
     case 'local':
     case 'workbench':
     case 'github-models':
+    case 'openai':
       return openaiCompletion(config, messages, start);
     case 'ollama':
       return ollamaCompletion(config, messages, start);
